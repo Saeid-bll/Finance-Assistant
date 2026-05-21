@@ -1,0 +1,2 @@
+"""News synthesizer agent placeholder."""
+

@@ -1,0 +1,2 @@
+"""Goal planning view placeholder."""
+

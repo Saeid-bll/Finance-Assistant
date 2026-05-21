@@ -1,0 +1,21 @@
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+  "contract: expected behavior tests for upcoming implementation milestones",
+  "integration: integration tests that combine multiple modules",
+  "unit: unit tests for isolated modules",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+  "src/web_app/app.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 80

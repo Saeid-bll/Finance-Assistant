@@ -1,0 +1,25 @@
+app:
+  name: AI Finance Assistant
+  environment: development
+  log_level: INFO
+
+llm:
+  provider: gemini
+  model: gemini-2.0-flash
+  temperature: 0.2
+  max_output_tokens: 1024
+
+rag:
+  vector_store: faiss
+  chunk_size: 800
+  chunk_overlap: 120
+  top_k: 4
+
+market_data:
+  primary_provider: yfinance
+  fallback_provider: alpha_vantage
+  cache_ttl_minutes: 30
+
+testing:
+  coverage_target_percent: 80
+

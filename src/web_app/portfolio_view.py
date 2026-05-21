@@ -1,0 +1,2 @@
+"""Portfolio dashboard view placeholder."""
+

@@ -1,0 +1,2 @@
+"""Market overview view placeholder."""
+
