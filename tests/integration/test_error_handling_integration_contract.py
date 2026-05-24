@@ -2,7 +2,6 @@ import pytest
 
 
 pytestmark = pytest.mark.integration
-pending = pytest.mark.xfail(strict=True, reason="Pending cross-module error handling")
 
 
 def test_missing_llm_api_key_has_actionable_error(require_attr, monkeypatch) -> None:
@@ -14,7 +13,6 @@ def test_missing_llm_api_key_has_actionable_error(require_attr, monkeypatch) -> 
         load_config(require_api_keys=True, load_env_file=False)
 
 
-@pending
 @pytest.mark.contract
 def test_low_confidence_retrieval_routes_to_safe_fallback(require_attr) -> None:
     build_graph = require_attr("workflow.graph", "build_graph")
@@ -27,7 +25,6 @@ def test_low_confidence_retrieval_routes_to_safe_fallback(require_attr) -> None:
     assert "not financial advice" in result["response"].content.lower()
 
 
-@pending
 @pytest.mark.contract
 def test_malformed_user_input_does_not_crash_workflow(require_attr) -> None:
     build_graph = require_attr("workflow.graph", "build_graph")

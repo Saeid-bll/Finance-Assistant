@@ -1,27 +1,34 @@
+import json
+
 import pytest
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending LangGraph workflow integration")
 
 
-@pending
 def test_workflow_routes_multi_turn_conversation(require_attr) -> None:
     build_graph = require_attr("workflow.graph", "build_graph")
-    WorkflowState = require_attr("workflow.state", "WorkflowState")
+    initial_state = require_attr("workflow.state", "initial_state")
 
-    graph = build_graph()
-    state = WorkflowState(user_id="demo")
+    graph = build_graph(
+        router_llm=FakeListChatModel(
+            responses=[
+                _route_response("finance_qa"),
+                _route_response("portfolio"),
+            ]
+        )
+    )
+    state = initial_state(user_id="demo")
 
-    first = graph.invoke({"state": state, "message": "What is diversification?"})
-    second = graph.invoke({"state": first["state"], "message": "How does that affect my portfolio?"})
+    first = graph.invoke({**state, "message": "What is diversification?"})
+    second = graph.invoke({**first, "message": "How does that affect my portfolio?"})
 
-    assert first["route"].agent_name == "finance_qa"
-    assert second["route"].agent_name == "portfolio"
-    assert len(second["state"].messages) >= 4
+    assert first["route"]["agent_name"] == "finance_qa"
+    assert second["route"]["agent_name"] == "portfolio"
+    assert len(second["messages"]) >= 4
 
 
-@pending
 def test_workflow_falls_back_when_agent_raises(require_attr) -> None:
     build_graph = require_attr("workflow.graph", "build_graph")
 
@@ -37,7 +44,6 @@ def test_workflow_falls_back_when_agent_raises(require_attr) -> None:
     assert "try again" in result["response"].content.lower()
 
 
-@pending
 def test_workflow_preserves_financial_safety_disclaimer(require_attr) -> None:
     build_graph = require_attr("workflow.graph", "build_graph")
     graph = build_graph()
@@ -46,3 +52,13 @@ def test_workflow_preserves_financial_safety_disclaimer(require_attr) -> None:
 
     assert "not financial advice" in result["response"].content.lower()
 
+
+def _route_response(agent_name: str) -> str:
+    return json.dumps(
+        {
+            "agent_name": agent_name,
+            "needs_clarification": False,
+            "confidence": 0.9,
+            "reason": "test route",
+        }
+    )

@@ -15,6 +15,8 @@ from rag.types import SOURCE_ID_KEY, TITLE_KEY, URL_KEY
 PERSONALIZED_RECOMMENDATION_PATTERNS = (
     r"\bshould\s+i\s+(buy|sell|hold|invest)\b",
     r"\bwhat\s+stock\s+should\s+i\b",
+    r"\bwhich\s+stock\s+will\s+(double|moon|crash)\b",
+    r"\bwill\s+(double|moon|crash)\b",
     r"\bwill\s+.+\s+(double|moon|crash)\b",
 )
 
@@ -35,9 +37,10 @@ class FinanceQAAgent(BaseAgent):
 
         if self._asks_for_personalized_recommendation(cleaned):
             return self.response(
-                "I cannot tell you whether to buy, sell, or hold a specific investment. "
-                "I can explain the concepts, risks, diversification, time horizon, fees, "
-                "and tradeoffs that investors often review before making decisions.",
+                "I cannot predict short-term stock moves or tell you whether to buy, sell, "
+                "or hold a specific investment. I can explain the concepts, risks, "
+                "diversification, time horizon, fees, and tradeoffs that investors often "
+                "review before making decisions.",
                 confidence=0.4,
                 error_code="PERSONALIZED_ADVICE_REQUEST",
             )

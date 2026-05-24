@@ -181,20 +181,6 @@ class GoalProjection(BaseModel):
     disclaimer: str = Field(..., min_length=1)
 
 
-class ChatMessage(BaseModel):
-    """A conversation message stored in workflow state."""
-
-    role: Literal["user", "assistant", "system"]
-    content: str = Field(..., min_length=1)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, value: str) -> str:
-        return _clean_non_empty(value, "content")
-
-
 class ErrorResponse(BaseModel):
     """Consistent non-crashing error response."""
 
