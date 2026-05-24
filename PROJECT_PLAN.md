@@ -139,12 +139,16 @@ Done when:
 ### Milestone 3: RAG Knowledge Base
 
 - Add curated starter articles or markdown notes.
-- Implement document loading, chunking, embedding, indexing, and retrieval.
+- Implement document loading, chunking, embedding, indexing, and retrieval using LangChain-native abstractions wherever practical.
+- Use `langchain_core.documents.Document` as the RAG document and chunk contract, storing source fields and chunk metadata in `Document.metadata`.
+- Use LangChain text splitters for chunking instead of custom splitting logic.
+- Use configurable LangChain embeddings, with Gemini embeddings for production and LangChain deterministic fake embeddings for automated tests.
+- Use LangChain Community FAISS vector store built-in methods for indexing, retrieval, persistence, and retriever creation.
 - Include source attribution in retrieval results.
 
 Done when:
 - A question can retrieve relevant source chunks.
-- Retrieval tests verify citations and empty-result handling.
+- Retrieval tests verify LangChain `Document` metadata, FAISS ranking, persistence, and empty-result handling.
 
 ### Milestone 4: Core Agents
 

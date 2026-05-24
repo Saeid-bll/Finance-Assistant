@@ -114,6 +114,9 @@ def test_config_loader_reads_yaml(require_attr, project_root) -> None:
     config = load_config(project_root / "config.yaml")
 
     assert config.app.name == "AI Finance Assistant"
+    assert config.rag.embedding_provider == "gemini"
+    assert config.rag.embedding_model == "models/gemini-embedding-001"
+    assert config.rag.embedding_dimensions == 768
     assert config.testing.coverage_target_percent == 80
 
 
@@ -121,12 +124,16 @@ def test_config_loader_applies_env_overrides(require_attr, project_root, monkeyp
     load_config = require_attr("core.config", "load_config")
     monkeypatch.setenv("LLM_PROVIDER", "openai")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("RAG_EMBEDDING_MODEL", "gemini-embedding-001")
+    monkeypatch.setenv("RAG_EMBEDDING_DIMENSIONS", "1536")
     monkeypatch.setenv("ALPHA_VANTAGE_API_KEY", "alpha-key")
 
     config = load_config(project_root / "config.yaml", load_env_file=False)
 
     assert config.llm.provider == "openai"
     assert config.llm.api_key == "test-key"
+    assert config.rag.embedding_model == "gemini-embedding-001"
+    assert config.rag.embedding_dimensions == 1536
     assert config.market_data.alpha_vantage_api_key == "alpha-key"
 
 

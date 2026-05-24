@@ -1,3 +1,5 @@
+from numbers import Real
+
 import pytest
 
 
@@ -12,8 +14,9 @@ def test_loader_reads_markdown_knowledge_base(require_attr, tmp_path) -> None:
     documents = load_knowledge_base(tmp_path)
 
     assert len(documents) == 1
-    assert documents[0].title == "Diversification"
-    assert documents[0].source_id == "diversification"
+    assert documents[0].metadata["title"] == "Diversification"
+    assert documents[0].metadata["source_id"] == "diversification"
+    assert documents[0].id == "diversification"
 
 
 def test_loader_reads_project_starter_knowledge_base(require_attr, project_root) -> None:
@@ -22,7 +25,7 @@ def test_loader_reads_project_starter_knowledge_base(require_attr, project_root)
     documents = load_knowledge_base(project_root / "src" / "data" / "knowledge_base")
 
     assert len(documents) >= 10
-    assert {document.source_id for document in documents} >= {
+    assert {document.metadata["source_id"] for document in documents} >= {
         "compound-interest",
         "diversification",
         "exchange-traded-funds",
@@ -42,8 +45,10 @@ def test_chunker_preserves_source_metadata(require_attr, sample_documents) -> No
     chunks = chunk_documents(sample_documents, chunk_size=80, chunk_overlap=10)
 
     assert chunks
-    assert chunks[0].source_id == "investor-gov-diversification"
-    assert chunks[0].title == "Diversification"
+    assert chunks[0].metadata["source_id"] == "investor-gov-diversification"
+    assert chunks[0].metadata["title"] == "Diversification"
+    assert chunks[0].metadata["chunk_index"] == 0
+    assert chunks[0].id == "investor-gov-diversification:0"
 
 
 def test_chunker_rejects_invalid_overlap(require_attr, sample_documents) -> None:
@@ -53,70 +58,118 @@ def test_chunker_rejects_invalid_overlap(require_attr, sample_documents) -> None
         chunk_documents(sample_documents, chunk_size=50, chunk_overlap=50)
 
 
-def test_local_embedding_tokenizer_ignores_common_stopwords(require_attr) -> None:
-    tokenize = require_attr("rag.embeddings", "tokenize")
+def test_test_embedding_model_is_deterministic_and_offline(require_attr) -> None:
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
 
-    assert tokenize("What is the compound interest?") == ["compound", "interest"]
+    embeddings = create_test_embedding_model(dimensions=16)
+    first = embeddings.embed_query("compound interest")
+    second = embeddings.embed_query("compound interest")
+
+    assert first == second
+    assert len(first) == 16
 
 
-def test_cosine_similarity_returns_zero_for_no_overlap(require_attr) -> None:
-    cosine_similarity = require_attr("rag.embeddings", "cosine_similarity")
+def test_embedding_factory_rejects_unknown_provider(require_attr) -> None:
+    create_embedding_model = require_attr("rag.embeddings", "create_embedding_model")
 
-    assert cosine_similarity({"stocks": 1.0}, {"bonds": 1.0}) == 0.0
+    with pytest.raises(ValueError):
+        create_embedding_model(provider="custom")
 
 
 def test_retriever_returns_ranked_results(require_attr, sample_documents) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
-    retriever = Retriever.from_documents(sample_documents)
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
+    retriever = create_retriever_from_documents(
+        sample_documents,
+        embedding_model=create_test_embedding_model(),
+        top_k=2,
+    )
 
-    results = retriever.retrieve("What is compound interest?", top_k=2)
+    results = retriever.invoke(sample_documents[1]["content"])
 
-    assert results[0].source_id == "investor-gov-compound-interest"
-    assert results[0].score > 0
+    assert results[0].metadata["source_id"] == "investor-gov-compound-interest"
+    assert results[0].page_content
 
 
 def test_retriever_handles_empty_knowledge_base(require_attr) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
-    retriever = Retriever.from_documents([])
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
+    retriever = create_retriever_from_documents([], embedding_model=create_test_embedding_model())
 
-    results = retriever.retrieve("What is an ETF?", top_k=4)
+    results = retriever.invoke("What is an ETF?")
 
     assert results == []
 
 
 def test_retriever_respects_top_k(require_attr, sample_documents) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
-    retriever = Retriever.from_documents(sample_documents)
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
+    retriever = create_retriever_from_documents(
+        sample_documents,
+        embedding_model=create_test_embedding_model(),
+        top_k=1,
+    )
 
-    results = retriever.retrieve("interest diversification", top_k=1)
+    results = retriever.invoke("interest diversification")
 
     assert len(results) == 1
 
 
 def test_retriever_can_load_project_knowledge_base(require_attr, project_root) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
+    load_knowledge_base = require_attr("rag.loader", "load_knowledge_base")
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_retriever_from_knowledge_base = require_attr(
+        "rag.retriever", "create_retriever_from_knowledge_base"
+    )
+    documents = load_knowledge_base(project_root / "src" / "data" / "knowledge_base")
+    expense_document = next(
+        document for document in documents if document.metadata["source_id"] == "expense-ratios"
+    )
 
-    retriever = Retriever.from_knowledge_base(project_root / "src" / "data" / "knowledge_base")
-    results = retriever.retrieve("How do expense ratios affect fund costs?", top_k=2)
+    retriever = create_retriever_from_knowledge_base(
+        project_root / "src" / "data" / "knowledge_base",
+        embedding_model=create_test_embedding_model(),
+        top_k=2,
+    )
+    results = retriever.invoke(expense_document.page_content)
 
     assert results
-    assert results[0].source_id == "expense-ratios"
+    assert results[0].metadata["source_id"] == "expense-ratios"
 
 
-def test_vector_store_can_save_and_load_index(require_attr, sample_documents, tmp_path) -> None:
-    VectorStore = require_attr("rag.vector_store", "VectorStore")
-    store = VectorStore.from_documents(sample_documents)
+def test_faiss_vector_store_can_save_and_load_index(require_attr, sample_documents, tmp_path) -> None:
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_vector_store = require_attr("rag.vector_store", "create_vector_store")
+    save_vector_store = require_attr("rag.vector_store", "save_vector_store")
+    load_vector_store = require_attr("rag.vector_store", "load_vector_store")
+    embeddings = create_test_embedding_model()
+    store = create_vector_store(sample_documents, embedding_model=embeddings)
     index_path = tmp_path / "index"
 
-    store.save(index_path)
-    reloaded = VectorStore.load(index_path)
+    assert store is not None
+    save_vector_store(store, index_path)
+    reloaded = load_vector_store(index_path, embedding_model=embeddings)
 
-    assert reloaded.search("diversification", top_k=1)[0].source_id == "investor-gov-diversification"
+    results = reloaded.similarity_search_with_score(sample_documents[0]["content"], k=1)
+    assert results[0][0].metadata["source_id"] == "investor-gov-diversification"
+    assert isinstance(results[0][1], Real)
 
 
-def test_vector_store_rejects_invalid_top_k(require_attr, sample_documents) -> None:
-    VectorStore = require_attr("rag.vector_store", "VectorStore")
-    store = VectorStore.from_documents(sample_documents)
+def test_retriever_rejects_invalid_top_k(require_attr, sample_documents) -> None:
+    create_test_embedding_model = require_attr("rag.embeddings", "create_test_embedding_model")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
 
     with pytest.raises(ValueError):
-        store.search("diversification", top_k=0)
+        create_retriever_from_documents(
+            sample_documents,
+            embedding_model=create_test_embedding_model(),
+            top_k=0,
+        )

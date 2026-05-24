@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
+from langchain_core.documents import Document
 import yaml
 
-from rag.types import KnowledgeDocument, resolve_path, slugify
+from rag.types import PATH_KEY, SOURCE_ID_KEY, SOURCE_KEY, TITLE_KEY, URL_KEY, resolve_path, slugify
 
 
 def _split_front_matter(text: str) -> Tuple[Dict[str, Any], str]:
@@ -33,8 +34,8 @@ def _extract_title(body: str, fallback: str) -> str:
     return fallback
 
 
-def load_markdown_document(path: Union[Path, str]) -> KnowledgeDocument:
-    """Load one markdown file as a KnowledgeDocument."""
+def load_markdown_document(path: Union[Path, str]) -> Document:
+    """Load one markdown file as a LangChain Document."""
 
     file_path = resolve_path(path)
     text = file_path.read_text(encoding="utf-8")
@@ -48,17 +49,24 @@ def load_markdown_document(path: Union[Path, str]) -> KnowledgeDocument:
     if not content:
         raise ValueError(f"Knowledge base document is empty: {file_path}")
 
-    return KnowledgeDocument(
-        source_id=source_id,
-        title=title,
-        url=str(url).strip() if url else None,
-        path=str(file_path),
-        content=content,
-        metadata={key: value for key, value in metadata.items() if key not in {"source_id", "title", "url"}},
+    document_metadata = {
+        key: value for key, value in metadata.items() if key not in {SOURCE_ID_KEY, TITLE_KEY, URL_KEY}
+    }
+    document_metadata.update(
+        {
+            SOURCE_ID_KEY: source_id,
+            TITLE_KEY: title,
+            PATH_KEY: str(file_path),
+            SOURCE_KEY: str(file_path),
+        }
     )
+    if url:
+        document_metadata[URL_KEY] = str(url).strip()
+
+    return Document(page_content=content, metadata=document_metadata, id=source_id)
 
 
-def load_knowledge_base(directory: Union[Path, str]) -> List[KnowledgeDocument]:
+def load_knowledge_base(directory: Union[Path, str]) -> List[Document]:
     """Load all markdown files from a knowledge base directory."""
 
     base_path = resolve_path(directory)

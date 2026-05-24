@@ -15,7 +15,7 @@ This assistant is for financial education only. It must not provide personalized
 
 ## RAG Knowledge Base
 
-The current RAG layer uses local markdown documents from `src/data/knowledge_base/`, word-aware chunking, deterministic term-frequency embeddings, JSON-persisted vector indexes, and source-preserving retrieval results. This keeps development and tests reproducible before external embedding providers are introduced.
+The current RAG layer uses local markdown documents from `src/data/knowledge_base/`, LangChain `Document` objects, LangChain text splitters, Gemini embeddings by default, and LangChain Community FAISS vector stores. Source attribution lives in `Document.metadata`, and retrieval uses LangChain-native `invoke(...)` and FAISS search methods. Tests inject LangChain deterministic fake embeddings so automated runs do not make API calls.
 
 ## Setup
 

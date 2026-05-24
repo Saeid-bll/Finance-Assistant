@@ -10,7 +10,7 @@ def test_finance_qa_agent_uses_retrieved_context(require_attr, sample_documents)
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
     class FakeRetriever:
-        def retrieve(self, query, top_k=4):
+        def invoke(self, query):
             return sample_documents[:1]
 
     class FakeLLM:
@@ -39,7 +39,7 @@ def test_finance_qa_agent_handles_low_confidence_retrieval(require_attr) -> None
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
     class EmptyRetriever:
-        def retrieve(self, query, top_k=4):
+        def invoke(self, query):
             return []
 
     agent = FinanceQAAgent(retriever=EmptyRetriever(), llm=None)
@@ -59,4 +59,3 @@ def test_finance_qa_agent_avoids_personalized_recommendations(require_attr) -> N
 
     assert "not financial advice" in response.content.lower()
     assert "should buy" not in response.content.lower()
-

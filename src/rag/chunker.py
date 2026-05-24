@@ -2,41 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List, Union
+from typing import Iterable, List, Mapping, Union
 
-from rag.types import DocumentChunk, KnowledgeDocument, normalize_document
+from langchain_core.documents import Document
+from langchain_text_splitters import MarkdownTextSplitter
 
-
-def _split_words(text: str) -> List[str]:
-    return [word for word in text.replace("\n", " ").split(" ") if word]
-
-
-def _words_to_text(words: List[str]) -> str:
-    return " ".join(words).strip()
+from rag.types import CHUNK_ID_KEY, CHUNK_INDEX_KEY, SOURCE_ID_KEY, normalize_document
 
 
-def _overlap_words(words: List[str], overlap_chars: int) -> List[str]:
-    if overlap_chars <= 0:
-        return []
-
-    kept: List[str] = []
-    current_length = 0
-    for word in reversed(words):
-        projected = current_length + len(word) + (1 if kept else 0)
-        if projected > overlap_chars:
-            break
-        kept.insert(0, word)
-        current_length = projected
-    return kept
+DocumentLike = Union[Document, Mapping[str, object]]
 
 
 def chunk_document(
-    document: KnowledgeDocument,
+    document: DocumentLike,
     *,
     chunk_size: int = 800,
     chunk_overlap: int = 120,
-) -> List[DocumentChunk]:
-    """Split one document into word-aware chunks while preserving metadata."""
+) -> List[Document]:
+    """Split one document into LangChain Document chunks with preserved metadata."""
 
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
@@ -45,44 +28,25 @@ def chunk_document(
     if chunk_overlap >= chunk_size:
         raise ValueError("chunk_overlap must be smaller than chunk_size")
 
-    words = _split_words(document.content)
-    if not words:
+    source_document = normalize_document(document)
+    if not source_document.page_content.strip():
         return []
 
-    chunks: List[DocumentChunk] = []
-    current_words: List[str] = []
+    splitter = MarkdownTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    split_documents = splitter.split_documents([source_document])
+    source_id = str(source_document.metadata[SOURCE_ID_KEY])
 
-    for word in words:
-        projected = _words_to_text([*current_words, word])
-        if current_words and len(projected) > chunk_size:
-            chunk_text = _words_to_text(current_words)
-            chunks.append(
-                DocumentChunk(
-                    chunk_id=f"{document.source_id}:{len(chunks)}",
-                    source_id=document.source_id,
-                    title=document.title,
-                    url=document.url,
-                    path=document.path,
-                    content=chunk_text,
-                    chunk_index=len(chunks),
-                    metadata=dict(document.metadata),
-                )
-            )
-            current_words = [*_overlap_words(current_words, chunk_overlap), word]
-        else:
-            current_words.append(word)
-
-    if current_words:
+    chunks: List[Document] = []
+    for chunk_index, chunk in enumerate(split_documents):
+        chunk_id = f"{source_id}:{chunk_index}"
+        metadata = dict(chunk.metadata)
+        metadata[CHUNK_INDEX_KEY] = chunk_index
+        metadata[CHUNK_ID_KEY] = chunk_id
         chunks.append(
-            DocumentChunk(
-                chunk_id=f"{document.source_id}:{len(chunks)}",
-                source_id=document.source_id,
-                title=document.title,
-                url=document.url,
-                path=document.path,
-                content=_words_to_text(current_words),
-                chunk_index=len(chunks),
-                metadata=dict(document.metadata),
+            Document(
+                page_content=chunk.page_content.strip(),
+                metadata=metadata,
+                id=chunk_id,
             )
         )
 
@@ -90,18 +54,18 @@ def chunk_document(
 
 
 def chunk_documents(
-    documents: Iterable[Union[KnowledgeDocument, dict]],
+    documents: Iterable[DocumentLike],
     *,
     chunk_size: int = 800,
     chunk_overlap: int = 120,
-) -> List[DocumentChunk]:
+) -> List[Document]:
     """Split multiple documents into chunks."""
 
-    chunks: List[DocumentChunk] = []
+    chunks: List[Document] = []
     for document in documents:
         chunks.extend(
             chunk_document(
-                normalize_document(document),
+                document,
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
             )

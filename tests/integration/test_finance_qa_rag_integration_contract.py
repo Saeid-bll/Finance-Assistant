@@ -7,10 +7,12 @@ pending = pytest.mark.xfail(strict=True, reason="Pending Finance Q&A plus RAG in
 
 @pending
 def test_finance_qa_retrieves_sources_and_generates_cited_answer(require_attr, sample_documents) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
-    retriever = Retriever.from_documents(sample_documents)
+    retriever = create_retriever_from_documents(sample_documents)
     agent = FinanceQAAgent(retriever=retriever)
 
     response = agent.answer("What is diversification?")
@@ -23,10 +25,12 @@ def test_finance_qa_retrieves_sources_and_generates_cited_answer(require_attr, s
 
 @pending
 def test_finance_qa_handles_empty_knowledge_base(require_attr) -> None:
-    Retriever = require_attr("rag.retriever", "Retriever")
+    create_retriever_from_documents = require_attr(
+        "rag.retriever", "create_retriever_from_documents"
+    )
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
-    retriever = Retriever.from_documents([])
+    retriever = create_retriever_from_documents([])
     agent = FinanceQAAgent(retriever=retriever)
 
     response = agent.answer("What is an ETF?")
@@ -34,4 +38,3 @@ def test_finance_qa_handles_empty_knowledge_base(require_attr) -> None:
     assert response.confidence < 0.5
     assert response.citations == []
     assert "source" in response.content.lower()
-

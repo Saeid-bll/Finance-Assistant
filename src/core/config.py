@@ -31,6 +31,9 @@ class LLMSettings(BaseModel):
 
 class RAGSettings(BaseModel):
     vector_store: str = "faiss"
+    embedding_provider: str = "gemini"
+    embedding_model: str = "models/gemini-embedding-001"
+    embedding_dimensions: int = Field(default=768, gt=0)
     chunk_size: int = Field(default=800, gt=0)
     chunk_overlap: int = Field(default=120, ge=0)
     top_k: int = Field(default=4, gt=0)
@@ -77,16 +80,24 @@ def _read_yaml(path: Path) -> Dict[str, Any]:
 def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(data)
     llm = dict(merged.get("llm", {}))
+    rag = dict(merged.get("rag", {}))
     market_data = dict(merged.get("market_data", {}))
 
     if os.getenv("LLM_PROVIDER"):
         llm["provider"] = os.environ["LLM_PROVIDER"]
     if os.getenv("GEMINI_API_KEY"):
         llm["api_key"] = os.environ["GEMINI_API_KEY"]
+    if os.getenv("RAG_EMBEDDING_PROVIDER"):
+        rag["embedding_provider"] = os.environ["RAG_EMBEDDING_PROVIDER"]
+    if os.getenv("RAG_EMBEDDING_MODEL"):
+        rag["embedding_model"] = os.environ["RAG_EMBEDDING_MODEL"]
+    if os.getenv("RAG_EMBEDDING_DIMENSIONS"):
+        rag["embedding_dimensions"] = os.environ["RAG_EMBEDDING_DIMENSIONS"]
     if os.getenv("ALPHA_VANTAGE_API_KEY"):
         market_data["alpha_vantage_api_key"] = os.environ["ALPHA_VANTAGE_API_KEY"]
 
     merged["llm"] = llm
+    merged["rag"] = rag
     merged["market_data"] = market_data
     return merged
 
@@ -94,6 +105,8 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
 def _validate_required_api_keys(config: ProjectConfig) -> None:
     if config.llm.provider.lower() == "gemini" and not config.llm.api_key:
         raise ConfigError("GEMINI_API_KEY is required when using the Gemini provider")
+    if config.rag.embedding_provider.lower() == "gemini" and not config.llm.api_key:
+        raise ConfigError("GEMINI_API_KEY is required when using Gemini embeddings")
 
 
 def load_config(

@@ -1,74 +1,50 @@
-"""Deterministic local embeddings for development and tests."""
+"""LangChain embedding model factories for RAG."""
 
 from __future__ import annotations
 
-import math
-import re
-from collections import Counter
-from typing import Dict, Iterable, Optional, Set
+from typing import Optional
+
+from langchain_core.embeddings import DeterministicFakeEmbedding, Embeddings
 
 
-EmbeddingVector = Dict[str, float]
+DEFAULT_EMBEDDING_PROVIDER = "gemini"
+DEFAULT_GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
+DEFAULT_EMBEDDING_DIMENSIONS = 768
 
 
-DEFAULT_STOPWORDS: Set[str] = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "by",
-    "can",
-    "for",
-    "from",
-    "how",
-    "in",
-    "is",
-    "it",
-    "of",
-    "on",
-    "or",
-    "that",
-    "the",
-    "this",
-    "to",
-    "what",
-    "with",
-}
+def create_embedding_model(
+    *,
+    provider: str = DEFAULT_EMBEDDING_PROVIDER,
+    model: Optional[str] = None,
+    dimensions: Optional[int] = DEFAULT_EMBEDDING_DIMENSIONS,
+    api_key: Optional[str] = None,
+) -> Embeddings:
+    """Create the production LangChain embedding model."""
+
+    provider_name = provider.strip().lower()
+    if provider_name != "gemini":
+        raise ValueError(f"Unsupported embedding provider: {provider}")
+
+    try:
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    except ImportError as exc:
+        raise RuntimeError(
+            "Gemini embeddings require the langchain-google-genai package. "
+            "Install project dependencies with `python -m pip install -r requirements.txt`."
+        ) from exc
+
+    kwargs = {"model": model or DEFAULT_GEMINI_EMBEDDING_MODEL}
+    if dimensions is not None:
+        kwargs["output_dimensionality"] = dimensions
+    if api_key:
+        kwargs["google_api_key"] = api_key
+
+    return GoogleGenerativeAIEmbeddings(**kwargs)
 
 
-def tokenize(text: str, *, stopwords: Optional[Set[str]] = None) -> list[str]:
-    """Tokenize text into normalized terms."""
+def create_test_embedding_model(*, dimensions: int = DEFAULT_EMBEDDING_DIMENSIONS) -> Embeddings:
+    """Create an off-the-shelf deterministic fake embedding model for tests."""
 
-    ignored = DEFAULT_STOPWORDS if stopwords is None else stopwords
-    tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9_]*", text.lower())
-    return [token for token in tokens if token not in ignored]
-
-
-class LocalEmbeddingModel:
-    """Simple term-frequency embedding model suitable for local tests."""
-
-    def embed(self, text: str) -> EmbeddingVector:
-        tokens = tokenize(text)
-        if not tokens:
-            return {}
-
-        counts = Counter(tokens)
-        length = math.sqrt(sum(count * count for count in counts.values()))
-        return {token: count / length for token, count in counts.items()}
-
-    def embed_many(self, texts: Iterable[str]) -> list[EmbeddingVector]:
-        return [self.embed(text) for text in texts]
-
-
-def cosine_similarity(left: EmbeddingVector, right: EmbeddingVector) -> float:
-    """Calculate cosine similarity for sparse normalized vectors."""
-
-    if not left or not right:
-        return 0.0
-
-    if len(left) > len(right):
-        left, right = right, left
-    return sum(value * right.get(token, 0.0) for token, value in left.items())
+    if dimensions <= 0:
+        raise ValueError("dimensions must be positive")
+    return DeterministicFakeEmbedding(size=dimensions)

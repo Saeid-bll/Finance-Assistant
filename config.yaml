@@ -11,6 +11,9 @@ llm:
 
 rag:
   vector_store: faiss
+  embedding_provider: gemini
+  embedding_model: models/gemini-embedding-001
+  embedding_dimensions: 768
   chunk_size: 800
   chunk_overlap: 120
   top_k: 4
@@ -22,4 +25,3 @@ market_data:
 
 testing:
   coverage_target_percent: 80
-
