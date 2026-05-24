@@ -51,6 +51,7 @@ def test_placeholder_modules_import() -> None:
         "core.disclaimers",
         "core.logging",
         "core.models",
+        "core.tracing",
         "rag.chunker",
         "rag.embeddings",
         "rag.loader",

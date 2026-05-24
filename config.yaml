@@ -23,5 +23,10 @@ market_data:
   fallback_provider: alpha_vantage
   cache_ttl_minutes: 30
 
+langsmith:
+  tracing_enabled: false
+  project: ai-finance-assistant
+  endpoint: https://api.smith.langchain.com
+
 testing:
   coverage_target_percent: 80

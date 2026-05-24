@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 
@@ -111,12 +113,14 @@ def test_market_data_result_requires_quote_or_error(require_attr) -> None:
 def test_config_loader_reads_yaml(require_attr, project_root) -> None:
     load_config = require_attr("core.config", "load_config")
 
-    config = load_config(project_root / "config.yaml")
+    config = load_config(project_root / "config.yaml", load_env_file=False)
 
     assert config.app.name == "AI Finance Assistant"
     assert config.rag.embedding_provider == "gemini"
     assert config.rag.embedding_model == "models/gemini-embedding-001"
     assert config.rag.embedding_dimensions == 768
+    assert config.langsmith.tracing_enabled is False
+    assert config.langsmith.project == "ai-finance-assistant"
     assert config.testing.coverage_target_percent == 80
 
 
@@ -127,6 +131,9 @@ def test_config_loader_applies_env_overrides(require_attr, project_root, monkeyp
     monkeypatch.setenv("RAG_EMBEDDING_MODEL", "gemini-embedding-001")
     monkeypatch.setenv("RAG_EMBEDDING_DIMENSIONS", "1536")
     monkeypatch.setenv("ALPHA_VANTAGE_API_KEY", "alpha-key")
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "smith-key")
+    monkeypatch.setenv("LANGSMITH_PROJECT", "finance-test")
 
     config = load_config(project_root / "config.yaml", load_env_file=False)
 
@@ -135,6 +142,46 @@ def test_config_loader_applies_env_overrides(require_attr, project_root, monkeyp
     assert config.rag.embedding_model == "gemini-embedding-001"
     assert config.rag.embedding_dimensions == 1536
     assert config.market_data.alpha_vantage_api_key == "alpha-key"
+    assert config.langsmith.tracing_enabled is True
+    assert config.langsmith.api_key == "smith-key"
+    assert config.langsmith.project == "finance-test"
+
+
+def test_langsmith_tracing_sets_langchain_environment(require_attr, monkeypatch) -> None:
+    ProjectConfig = require_attr("core.config", "ProjectConfig")
+    LangSmithSettings = require_attr("core.config", "LangSmithSettings")
+    configure_langsmith_tracing = require_attr("core.tracing", "configure_langsmith_tracing")
+    for key in (
+        "LANGSMITH_TRACING",
+        "LANGCHAIN_TRACING_V2",
+        "LANGSMITH_API_KEY",
+        "LANGCHAIN_API_KEY",
+        "LANGSMITH_PROJECT",
+        "LANGCHAIN_PROJECT",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    config = ProjectConfig(
+        langsmith=LangSmithSettings(
+            tracing_enabled=True,
+            api_key="smith-key",
+            project="finance-test",
+        )
+    )
+
+    try:
+        enabled = configure_langsmith_tracing(config)
+
+        assert enabled is True
+        assert os.environ["LANGSMITH_TRACING"] == "true"
+        assert os.environ["LANGCHAIN_TRACING_V2"] == "true"
+        assert os.environ["LANGSMITH_API_KEY"] == "smith-key"
+        assert os.environ["LANGSMITH_PROJECT"] == "finance-test"
+    finally:
+        os.environ["LANGSMITH_TRACING"] = "false"
+        os.environ["LANGCHAIN_TRACING_V2"] = "false"
+        os.environ.pop("LANGSMITH_API_KEY", None)
+        os.environ.pop("LANGCHAIN_API_KEY", None)
 
 
 def test_config_loader_rejects_missing_file(require_attr, tmp_path) -> None:

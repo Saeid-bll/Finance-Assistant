@@ -16,6 +16,7 @@ from agents.market import MarketAnalysisAgent
 from agents.portfolio import PortfolioAnalysisAgent
 from core.disclaimers import append_disclaimer, disclaimer_text
 from core.models import AgentResponse
+from core.tracing import configure_langsmith_tracing
 from workflow.router import create_workflow_route, route_query
 from workflow.state import WorkflowState
 
@@ -34,6 +35,7 @@ def build_graph(
 ) -> Any:
     """Build the assistant workflow as a compiled LangGraph graph."""
 
+    configure_langsmith_tracing()
     agent_map = {**_default_agents(), **dict(agents or {})}
 
     graph = StateGraph(WorkflowState)

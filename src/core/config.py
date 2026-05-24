@@ -46,6 +46,13 @@ class MarketDataSettings(BaseModel):
     alpha_vantage_api_key: Optional[str] = None
 
 
+class LangSmithSettings(BaseModel):
+    tracing_enabled: bool = False
+    project: str = "ai-finance-assistant"
+    endpoint: str = "https://api.smith.langchain.com"
+    api_key: Optional[str] = None
+
+
 class TestingSettings(BaseModel):
     coverage_target_percent: int = Field(default=80, ge=0, le=100)
 
@@ -55,6 +62,7 @@ class ProjectConfig(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     rag: RAGSettings = Field(default_factory=RAGSettings)
     market_data: MarketDataSettings = Field(default_factory=MarketDataSettings)
+    langsmith: LangSmithSettings = Field(default_factory=LangSmithSettings)
     testing: TestingSettings = Field(default_factory=TestingSettings)
 
 
@@ -82,6 +90,7 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
     llm = dict(merged.get("llm", {}))
     rag = dict(merged.get("rag", {}))
     market_data = dict(merged.get("market_data", {}))
+    langsmith = dict(merged.get("langsmith", {}))
 
     if os.getenv("LLM_PROVIDER"):
         llm["provider"] = os.environ["LLM_PROVIDER"]
@@ -95,10 +104,27 @@ def _apply_env_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
         rag["embedding_dimensions"] = os.environ["RAG_EMBEDDING_DIMENSIONS"]
     if os.getenv("ALPHA_VANTAGE_API_KEY"):
         market_data["alpha_vantage_api_key"] = os.environ["ALPHA_VANTAGE_API_KEY"]
+    if os.getenv("LANGSMITH_TRACING"):
+        langsmith["tracing_enabled"] = os.environ["LANGSMITH_TRACING"]
+    elif os.getenv("LANGCHAIN_TRACING_V2"):
+        langsmith["tracing_enabled"] = os.environ["LANGCHAIN_TRACING_V2"]
+    if os.getenv("LANGSMITH_PROJECT"):
+        langsmith["project"] = os.environ["LANGSMITH_PROJECT"]
+    elif os.getenv("LANGCHAIN_PROJECT"):
+        langsmith["project"] = os.environ["LANGCHAIN_PROJECT"]
+    if os.getenv("LANGSMITH_ENDPOINT"):
+        langsmith["endpoint"] = os.environ["LANGSMITH_ENDPOINT"]
+    elif os.getenv("LANGCHAIN_ENDPOINT"):
+        langsmith["endpoint"] = os.environ["LANGCHAIN_ENDPOINT"]
+    if os.getenv("LANGSMITH_API_KEY"):
+        langsmith["api_key"] = os.environ["LANGSMITH_API_KEY"]
+    elif os.getenv("LANGCHAIN_API_KEY"):
+        langsmith["api_key"] = os.environ["LANGCHAIN_API_KEY"]
 
     merged["llm"] = llm
     merged["rag"] = rag
     merged["market_data"] = market_data
+    merged["langsmith"] = langsmith
     return merged
 
 
@@ -107,6 +133,8 @@ def _validate_required_api_keys(config: ProjectConfig) -> None:
         raise ConfigError("GEMINI_API_KEY is required when using the Gemini provider")
     if config.rag.embedding_provider.lower() == "gemini" and not config.llm.api_key:
         raise ConfigError("GEMINI_API_KEY is required when using Gemini embeddings")
+    if config.langsmith.tracing_enabled and not config.langsmith.api_key:
+        raise ConfigError("LANGSMITH_API_KEY is required when LangSmith tracing is enabled")
 
 
 def load_config(

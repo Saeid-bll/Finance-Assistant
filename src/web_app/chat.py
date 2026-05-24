@@ -9,6 +9,7 @@ from uuid import uuid4
 from langchain_core.messages import BaseMessage
 
 from core.models import AgentResponse
+from core.tracing import langsmith_trace_context
 from workflow.graph import build_graph, conversation_config, create_memory_checkpointer
 from workflow.state import WorkflowState, initial_state
 
@@ -68,7 +69,11 @@ def run_chat_turn(
     if user_id:
         payload["user_id"] = user_id
 
-    return runtime.graph.invoke(payload, config=conversation_config(runtime.thread_id))
+    with langsmith_trace_context(
+        tags=["streamlit", "chat"],
+        metadata={"thread_id": runtime.thread_id, "surface": "web_app"},
+    ):
+        return runtime.graph.invoke(payload, config=conversation_config(runtime.thread_id))
 
 
 def reset_chat_runtime(session_state: dict[str, Any]) -> None:

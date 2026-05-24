@@ -65,6 +65,18 @@ See [TESTING_AND_EVALUATION.md](TESTING_AND_EVALUATION.md) for the full test mat
 streamlit run src/web_app/app.py
 ```
 
+## LangSmith Tracing
+
+Tracing is disabled by default. To trace LangChain and LangGraph runs in LangSmith, set these values in `.env`:
+
+```bash
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your-langsmith-key
+LANGSMITH_PROJECT=ai-finance-assistant
+```
+
+The app also sets the compatible `LANGCHAIN_*` tracing variables at runtime for the installed LangChain stack.
+
 ## Project Status
 
 Step 1 planning is complete. Step 2 scaffold and tooling are complete. Step 2.5 test and evaluation contracts are complete. Step 3 core models and utilities are complete. Step 4 RAG knowledge base is complete. Step 5 core agents are complete. Step 6 workflow orchestration is complete. Step 7 Streamlit UI is implemented with chat, portfolio, market, and goals tabs.
