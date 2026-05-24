@@ -2,10 +2,8 @@ import pytest
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending finance Q&A agent implementation")
 
 
-@pending
 def test_finance_qa_agent_uses_retrieved_context(require_attr, sample_documents) -> None:
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
@@ -25,7 +23,6 @@ def test_finance_qa_agent_uses_retrieved_context(require_attr, sample_documents)
     assert response.citations[0].source_id == "investor-gov-diversification"
 
 
-@pending
 def test_finance_qa_agent_rejects_empty_question(require_attr) -> None:
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
     agent = FinanceQAAgent(retriever=None, llm=None)
@@ -34,7 +31,6 @@ def test_finance_qa_agent_rejects_empty_question(require_attr) -> None:
         agent.answer("")
 
 
-@pending
 def test_finance_qa_agent_handles_low_confidence_retrieval(require_attr) -> None:
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
 
@@ -50,7 +46,6 @@ def test_finance_qa_agent_handles_low_confidence_retrieval(require_attr) -> None
     assert "could not find enough reliable source material" in response.content.lower()
 
 
-@pending
 def test_finance_qa_agent_avoids_personalized_recommendations(require_attr) -> None:
     FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
     agent = FinanceQAAgent(retriever=None, llm=None)

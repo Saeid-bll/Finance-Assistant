@@ -4,10 +4,8 @@ import pytest
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending market agent implementation")
 
 
-@pending
 def test_market_agent_normalizes_ticker_symbols(require_attr) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     agent = MarketAnalysisAgent(provider=None)
@@ -15,7 +13,6 @@ def test_market_agent_normalizes_ticker_symbols(require_attr) -> None:
     assert agent.normalize_ticker(" vti ") == "VTI"
 
 
-@pending
 def test_market_agent_returns_quote_with_freshness(require_attr, fake_market_quote) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     agent = MarketAnalysisAgent(provider=lambda ticker: fake_market_quote)
@@ -28,7 +25,6 @@ def test_market_agent_returns_quote_with_freshness(require_attr, fake_market_quo
     assert quote.as_of is not None
 
 
-@pending
 def test_market_agent_uses_cache_for_repeated_lookup(require_attr, fake_market_quote) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     calls = {"count": 0}
@@ -45,7 +41,6 @@ def test_market_agent_uses_cache_for_repeated_lookup(require_attr, fake_market_q
     assert calls["count"] == 1
 
 
-@pending
 def test_market_agent_handles_unknown_ticker(require_attr) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     agent = MarketAnalysisAgent(provider=lambda ticker: None)
@@ -56,7 +51,6 @@ def test_market_agent_handles_unknown_ticker(require_attr) -> None:
     assert "could not find" in result.message.lower()
 
 
-@pending
 def test_market_agent_handles_provider_failure(require_attr) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
 
@@ -69,4 +63,3 @@ def test_market_agent_handles_provider_failure(require_attr) -> None:
 
     assert result.error_code == "MARKET_DATA_UNAVAILABLE"
     assert result.fallback_used is True
-

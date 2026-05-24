@@ -2,10 +2,8 @@ import pytest
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending goal flow integration")
 
 
-@pending
 def test_goal_flow_validates_projects_and_formats_summary(require_attr, sample_goal) -> None:
     GoalPlanningAgent = require_attr("agents.goals", "GoalPlanningAgent")
     format_goal_summary = require_attr("utils.formatting", "format_goal_summary")
@@ -19,7 +17,6 @@ def test_goal_flow_validates_projects_and_formats_summary(require_attr, sample_g
     assert "assumption" in summary.lower()
 
 
-@pending
 def test_goal_flow_handles_unreachable_goal_conservatively(require_attr, sample_goal) -> None:
     GoalPlanningAgent = require_attr("agents.goals", "GoalPlanningAgent")
     agent = GoalPlanningAgent()
@@ -36,4 +33,3 @@ def test_goal_flow_handles_unreachable_goal_conservatively(require_attr, sample_
     assert projection.shortfall_or_surplus < 0
     assert "increase contributions" in projection.educational_summary.lower()
     assert "guarantee" not in projection.educational_summary.lower()
-

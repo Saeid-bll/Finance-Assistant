@@ -2,10 +2,8 @@ import pytest
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending market flow integration")
 
 
-@pending
 def test_market_flow_uses_mocked_provider_and_cache(require_attr, fake_market_quote) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     TTLCache = require_attr("utils.cache", "TTLCache")
@@ -24,7 +22,6 @@ def test_market_flow_uses_mocked_provider_and_cache(require_attr, fake_market_qu
     assert calls["count"] == 1
 
 
-@pending
 def test_market_flow_reports_data_freshness(require_attr, fake_market_quote) -> None:
     MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
     format_market_response = require_attr("utils.formatting", "format_market_response")
@@ -35,4 +32,3 @@ def test_market_flow_reports_data_freshness(require_attr, fake_market_quote) -> 
 
     assert "as of" in message.lower()
     assert "test-provider" in message
-

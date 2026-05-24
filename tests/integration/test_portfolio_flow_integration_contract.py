@@ -2,10 +2,8 @@ import pytest
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.contract]
-pending = pytest.mark.xfail(strict=True, reason="Pending portfolio flow integration")
 
 
-@pending
 def test_portfolio_flow_validates_analyzes_and_returns_chart_ready_data(
     require_attr, sample_holdings
 ) -> None:
@@ -21,7 +19,6 @@ def test_portfolio_flow_validates_analyzes_and_returns_chart_ready_data(
     assert sum(chart_data["values"]) == pytest.approx(1.0)
 
 
-@pending
 def test_portfolio_flow_returns_beginner_friendly_error_for_bad_input(require_attr) -> None:
     PortfolioAnalysisAgent = require_attr("agents.portfolio", "PortfolioAnalysisAgent")
     agent = PortfolioAnalysisAgent()
@@ -30,4 +27,3 @@ def test_portfolio_flow_returns_beginner_friendly_error_for_bad_input(require_at
 
     assert response.error_code == "INVALID_PORTFOLIO"
     assert "quantity" in response.content.lower()
-
