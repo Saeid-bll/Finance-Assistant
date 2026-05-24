@@ -2,6 +2,7 @@ import json
 
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
+from langchain_core.messages import HumanMessage
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.contract]
@@ -35,6 +36,18 @@ def test_router_falls_back_for_ambiguous_query(require_attr) -> None:
     assert route["needs_clarification"] is True
 
 
+def test_router_can_use_conversation_history_for_fallback_context(require_attr) -> None:
+    route_query = require_attr("workflow.router", "route_query")
+
+    route = route_query(
+        "How does that affect me?",
+        history=[HumanMessage(content="Analyze my portfolio allocation.")],
+    )
+
+    assert route["agent_name"] == "portfolio"
+    assert route["reason"] == "fallback_history_portfolio_context"
+
+
 def test_workflow_state_preserves_conversation_history(require_attr) -> None:
     import operator
     from typing import Annotated, get_args, get_origin, get_type_hints
@@ -56,6 +69,15 @@ def test_graph_builds_compilable_langgraph(require_attr) -> None:
     graph = build_graph(agents={})
 
     assert hasattr(graph, "invoke")
+
+
+def test_conversation_config_requires_thread_id(require_attr) -> None:
+    conversation_config = require_attr("workflow.graph", "conversation_config")
+
+    with pytest.raises(ValueError):
+        conversation_config(" ")
+
+    assert conversation_config("demo") == {"configurable": {"thread_id": "demo"}}
 
 
 def _fake_router_llm(agent_name: str, *, clarify: bool = False) -> FakeListChatModel:

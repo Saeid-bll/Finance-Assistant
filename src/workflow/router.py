@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 import re
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
+from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from typing_extensions import Literal, TypedDict
@@ -108,10 +109,14 @@ Output contract:
 """.strip()
 
 ROUTER_HUMAN_PROMPT = """
+Recent conversation history:
+{history}
+
 User message:
 {query}
 
-Choose the best route using the routing rules. Return only the JSON object.
+Choose the best route for the latest user message using the routing rules and any
+relevant context from the conversation history. Return only the JSON object.
 """.strip()
 
 
@@ -139,7 +144,9 @@ def create_workflow_route(
     }
 
 
-def route_query(query: str, *, llm: Optional[Any] = None) -> WorkflowRoute:
+def route_query(
+    query: str, *, llm: Optional[Any] = None, history: Optional[Sequence[Any]] = None
+) -> WorkflowRoute:
     """Classify a user query into the agent that should handle it."""
 
     cleaned = (query or "").strip()
@@ -154,12 +161,14 @@ def route_query(query: str, *, llm: Optional[Any] = None) -> WorkflowRoute:
     router_llm = llm if llm is not None else _default_router_llm()
     if router_llm is not None:
         try:
-            raw_route = _router_chain(router_llm).invoke({"query": cleaned})
+            raw_route = _router_chain(router_llm).invoke(
+                {"query": cleaned, "history": _format_history(history)}
+            )
             return _normalize_route(raw_route)
         except Exception:
             pass
 
-    return _fallback_route(cleaned)
+    return _fallback_route(cleaned, history=history)
 
 
 def _router_chain(llm: Any) -> Any:
@@ -217,7 +226,7 @@ def _normalize_route(raw_route: Any) -> WorkflowRoute:
     )
 
 
-def _fallback_route(query: str) -> WorkflowRoute:
+def _fallback_route(query: str, *, history: Optional[Sequence[Any]] = None) -> WorkflowRoute:
     lowered = query.lower()
     if _matches(lowered, r"\b(news|headline|headlines|summarize.+market news)\b"):
         return create_workflow_route(agent_name="news", reason="fallback_news_terms")
@@ -233,6 +242,18 @@ def _fallback_route(query: str) -> WorkflowRoute:
         return create_workflow_route(agent_name="finance_qa", reason="fallback_financial_safety_terms")
     if _matches(lowered, r"\b(etf|fund|bond|stock|invest|investing|diversification|compound|interest)\b"):
         return create_workflow_route(agent_name="finance_qa", reason="fallback_education_terms")
+    if _history_mentions(history, r"\b(portfolio|holding|holdings|allocation|allocations)\b"):
+        return create_workflow_route(
+            agent_name="portfolio",
+            confidence=0.55,
+            reason="fallback_history_portfolio_context",
+        )
+    if _history_mentions(history, r"\b(goal|save|saving|savings|house|retirement|contribution)\b"):
+        return create_workflow_route(
+            agent_name="goals",
+            confidence=0.55,
+            reason="fallback_history_goal_context",
+        )
 
     return create_workflow_route(
         agent_name="finance_qa",
@@ -255,3 +276,39 @@ def _clamp_confidence(value: float) -> float:
 
 def _matches(text: str, pattern: str) -> bool:
     return re.search(pattern, text) is not None
+
+
+def _format_history(history: Optional[Sequence[Any]], *, limit: int = 8) -> str:
+    if not history:
+        return "No prior conversation history."
+
+    lines = []
+    for message in list(history)[-limit:]:
+        role = _message_role(message)
+        content = _message_content(message)
+        if content:
+            lines.append(f"{role}: {content}")
+    return "\n".join(lines) if lines else "No prior conversation history."
+
+
+def _history_mentions(history: Optional[Sequence[Any]], pattern: str) -> bool:
+    if not history:
+        return False
+    text = " ".join(_message_content(message).lower() for message in history)
+    return _matches(text, pattern)
+
+
+def _message_role(message: Any) -> str:
+    if isinstance(message, BaseMessage):
+        return message.type
+    if isinstance(message, dict):
+        return str(message.get("type") or message.get("role") or "message")
+    return str(getattr(message, "type", None) or getattr(message, "role", "message"))
+
+
+def _message_content(message: Any) -> str:
+    if isinstance(message, BaseMessage):
+        return str(message.content)
+    if isinstance(message, dict):
+        return str(message.get("content") or "")
+    return str(getattr(message, "content", "") or "")

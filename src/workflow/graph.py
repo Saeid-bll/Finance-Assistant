@@ -7,6 +7,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 from agents.finance_qa import FinanceQAAgent
@@ -26,7 +27,10 @@ STRETCH_NODES = ("tax", "news")
 
 
 def build_graph(
-    *, agents: Optional[Mapping[str, Any]] = None, router_llm: Optional[Any] = None
+    *,
+    agents: Optional[Mapping[str, Any]] = None,
+    router_llm: Optional[Any] = None,
+    checkpointer: Optional[Any] = None,
 ) -> Any:
     """Build the assistant workflow as a compiled LangGraph graph."""
 
@@ -71,7 +75,22 @@ def build_graph(
     for node_name in (*AGENT_NODES, *STRETCH_NODES, "clarify", "unavailable"):
         graph.add_edge(node_name, "finalize")
     graph.add_edge("finalize", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
+
+
+def create_memory_checkpointer() -> MemorySaver:
+    """Create an in-process LangGraph checkpointer for conversation memory."""
+
+    return MemorySaver()
+
+
+def conversation_config(thread_id: str) -> dict[str, Any]:
+    """Create LangGraph config that selects a conversation memory thread."""
+
+    cleaned = thread_id.strip()
+    if not cleaned:
+        raise ValueError("thread_id cannot be empty")
+    return {"configurable": {"thread_id": cleaned}}
 
 
 def _validate_input(state: WorkflowState) -> StateUpdate:
@@ -102,7 +121,13 @@ def _validate_input(state: WorkflowState) -> StateUpdate:
 
 def _route_message(router_llm: Optional[Any]) -> Callable[[WorkflowState], StateUpdate]:
     def _run_router(state: WorkflowState) -> StateUpdate:
-        return {"route": route_query(state["message"], llm=router_llm)}
+        return {
+            "route": route_query(
+                state["message"],
+                llm=router_llm,
+                history=_prior_messages(state),
+            )
+        }
 
     return _run_router
 
@@ -188,6 +213,13 @@ def _route_target(state: WorkflowState) -> str:
     if agent_name in {*AGENT_NODES, *STRETCH_NODES}:
         return agent_name
     return "unavailable"
+
+
+def _prior_messages(state: WorkflowState) -> list[Any]:
+    messages = list(state.get("messages", []))
+    if messages and getattr(messages[-1], "type", None) == "human":
+        return messages[:-1]
+    return messages
 
 
 def _default_agents() -> dict[str, Any]:
