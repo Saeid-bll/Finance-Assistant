@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from agents.base import BaseAgent
 from core.disclaimers import disclaimer_text
 from core.models import AgentResponse, PortfolioAnalysis, PortfolioHolding
+from core.tracing import traceable_span
 
 
 class PortfolioAnalysisAgent(BaseAgent):
@@ -16,6 +17,7 @@ class PortfolioAnalysisAgent(BaseAgent):
 
     agent_name = "portfolio"
 
+    @traceable_span(name="portfolio.analyze", run_type="chain", tags=["agent", "portfolio"])
     def analyze(self, holdings: Iterable[dict[str, Any] | PortfolioHolding]) -> PortfolioAnalysis:
         parsed_holdings = [self._parse_holding(holding) for holding in holdings]
         if not parsed_holdings:
@@ -40,6 +42,7 @@ class PortfolioAnalysisAgent(BaseAgent):
             disclaimer=disclaimer_text(),
         )
 
+    @traceable_span(name="portfolio.run", run_type="chain", tags=["agent", "portfolio"])
     def run(self, payload: Any) -> AgentResponse:
         try:
             holdings = payload.get("holdings", []) if isinstance(payload, dict) else payload
@@ -62,6 +65,7 @@ class PortfolioAnalysisAgent(BaseAgent):
             return holding
         return PortfolioHolding.model_validate(holding)
 
+    @traceable_span(name="portfolio.concentration_warnings", run_type="tool", tags=["agent", "portfolio"])
     def _concentration_warnings(self, allocations: dict[str, float]) -> list[str]:
         warnings = []
         for ticker, allocation in allocations.items():
@@ -71,6 +75,7 @@ class PortfolioAnalysisAgent(BaseAgent):
                 )
         return warnings
 
+    @traceable_span(name="portfolio.diversification_score", run_type="tool", tags=["agent", "portfolio"])
     def _diversification_score(self, allocations: dict[str, float]) -> float:
         largest_allocation = max(allocations.values())
         holding_count = len(allocations)

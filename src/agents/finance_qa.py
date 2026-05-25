@@ -9,6 +9,7 @@ from langchain_core.documents import Document
 
 from agents.base import BaseAgent
 from core.models import AgentResponse, Citation
+from core.tracing import traceable_span
 from rag.types import SOURCE_ID_KEY, TITLE_KEY, URL_KEY
 
 
@@ -30,6 +31,7 @@ class FinanceQAAgent(BaseAgent):
         self.retriever = retriever
         self.llm = llm
 
+    @traceable_span(name="finance_qa.answer", run_type="chain", tags=["agent", "finance_qa"])
     def answer(self, question: str) -> AgentResponse:
         cleaned = question.strip()
         if not cleaned:
@@ -65,6 +67,7 @@ class FinanceQAAgent(BaseAgent):
             metadata={"source_count": len(citations)},
         )
 
+    @traceable_span(name="finance_qa.run", run_type="chain", tags=["agent", "finance_qa"])
     def run(self, payload: Any) -> AgentResponse:
         if isinstance(payload, str):
             return self.answer(payload)
@@ -72,6 +75,7 @@ class FinanceQAAgent(BaseAgent):
             return self.answer(str(payload.get("question") or payload.get("message") or ""))
         raise ValueError("payload must be a question string or mapping")
 
+    @traceable_span(name="finance_qa.retrieve", run_type="retriever", tags=["agent", "finance_qa"])
     def _retrieve(self, question: str) -> list[Document | dict[str, Any] | Any]:
         if self.retriever is None:
             return []
@@ -81,6 +85,7 @@ class FinanceQAAgent(BaseAgent):
             return list(self.retriever.retrieve(question))
         return []
 
+    @traceable_span(name="finance_qa.generate_answer", run_type="chain", tags=["agent", "finance_qa"])
     def _generate_answer(self, question: str, documents: list[Document | dict[str, Any] | Any]) -> str:
         context = "\n\n".join(
             f"Source: {self._document_title(document)}\n{self._document_content(document)}"
@@ -139,6 +144,7 @@ class FinanceQAAgent(BaseAgent):
         source_id = str(metadata.get(SOURCE_ID_KEY) or "knowledge-base")
         return str(metadata.get(TITLE_KEY) or source_id.replace("-", " ").title())
 
+    @traceable_span(name="finance_qa.safety_check", run_type="tool", tags=["agent", "finance_qa"])
     def _asks_for_personalized_recommendation(self, question: str) -> bool:
         lowered = question.lower()
         return any(re.search(pattern, lowered) for pattern in PERSONALIZED_RECOMMENDATION_PATTERNS)

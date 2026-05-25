@@ -11,6 +11,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.retrievers import BaseRetriever
 
+from core.tracing import traceable_span
 from rag.chunker import chunk_documents
 from rag.loader import load_knowledge_base
 from rag.vector_store import create_vector_store
@@ -22,6 +23,7 @@ DocumentLike = Union[Document, Mapping[str, object]]
 class EmptyRetriever(BaseRetriever):
     """LangChain retriever that returns no documents for an empty knowledge base."""
 
+    @traceable_span(name="rag.empty_retriever", run_type="retriever", tags=["rag", "retriever"])
     def _get_relevant_documents(
         self,
         query: str,
@@ -31,6 +33,7 @@ class EmptyRetriever(BaseRetriever):
         return []
 
 
+@traceable_span(name="rag.create_retriever", run_type="tool", tags=["rag", "retriever"])
 def create_retriever(
     vector_store: Optional[FAISS],
     *,
@@ -51,6 +54,7 @@ def create_retriever(
     return vector_store.as_retriever(search_type=search_type, search_kwargs=kwargs)
 
 
+@traceable_span(name="rag.create_retriever_from_documents", run_type="tool", tags=["rag", "retriever"])
 def create_retriever_from_documents(
     documents: Iterable[DocumentLike],
     *,
@@ -80,6 +84,7 @@ def create_retriever_from_documents(
     )
 
 
+@traceable_span(name="rag.create_retriever_from_knowledge_base", run_type="tool", tags=["rag", "retriever"])
 def create_retriever_from_knowledge_base(
     directory: Union[Path, str],
     *,
@@ -103,6 +108,7 @@ def create_retriever_from_knowledge_base(
     )
 
 
+@traceable_span(name="rag.split_documents_for_retrieval", run_type="tool", tags=["rag", "retriever"])
 def split_documents_for_retrieval(
     documents: Iterable[DocumentLike],
     *,

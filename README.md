@@ -77,6 +77,8 @@ LANGSMITH_PROJECT=ai-finance-assistant
 
 The app also sets the compatible `LANGCHAIN_*` tracing variables at runtime for the installed LangChain stack.
 
+Agent and tool internals are explicitly instrumented with LangSmith `@traceable` spans, so traces include child runs for routing, retrieval, answer generation, portfolio analysis, market lookup, goal projection, cache operations, and RAG indexing helpers.
+
 ## Project Status
 
 Step 1 planning is complete. Step 2 scaffold and tooling are complete. Step 2.5 test and evaluation contracts are complete. Step 3 core models and utilities are complete. Step 4 RAG knowledge base is complete. Step 5 core agents are complete. Step 6 workflow orchestration is complete. Step 7 Streamlit UI is implemented with chat, portfolio, market, and goals tabs.

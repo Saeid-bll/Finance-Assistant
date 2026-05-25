@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import nullcontext
-from typing import Any, ContextManager, Optional
+from typing import Any, Callable, ContextManager, Optional
 
 from core.config import ProjectConfig, load_config
 
@@ -51,6 +51,30 @@ def langsmith_trace_context(
         metadata=metadata,
         enabled=True,
     )
+
+
+def traceable_span(
+    *,
+    name: str,
+    run_type: str = "chain",
+    tags: Optional[list[str]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Create a LangSmith traceable decorator with cleaner method inputs."""
+
+    from langsmith import traceable
+
+    return traceable(
+        name=name,
+        run_type=run_type,
+        tags=tags,
+        metadata=metadata,
+        process_inputs=_strip_bound_method_inputs,
+    )
+
+
+def _strip_bound_method_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in inputs.items() if key not in {"self", "cls"}}
 
 
 def _bool_env(value: bool) -> str:

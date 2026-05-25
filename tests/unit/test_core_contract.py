@@ -184,6 +184,31 @@ def test_langsmith_tracing_sets_langchain_environment(require_attr, monkeypatch)
         os.environ.pop("LANGCHAIN_API_KEY", None)
 
 
+def test_agents_and_tools_are_langsmith_traceable(require_attr) -> None:
+    from langsmith.run_helpers import is_traceable_function
+
+    FinanceQAAgent = require_attr("agents.finance_qa", "FinanceQAAgent")
+    GoalPlanningAgent = require_attr("agents.goals", "GoalPlanningAgent")
+    MarketAnalysisAgent = require_attr("agents.market", "MarketAnalysisAgent")
+    PortfolioAnalysisAgent = require_attr("agents.portfolio", "PortfolioAnalysisAgent")
+    route_query = require_attr("workflow.router", "route_query")
+    chunk_document = require_attr("rag.chunker", "chunk_document")
+    create_retriever = require_attr("rag.retriever", "create_retriever")
+
+    traceable_functions = [
+        FinanceQAAgent.run,
+        FinanceQAAgent._retrieve,
+        GoalPlanningAgent.project,
+        MarketAnalysisAgent.lookup,
+        PortfolioAnalysisAgent.analyze,
+        route_query,
+        chunk_document,
+        create_retriever,
+    ]
+
+    assert all(is_traceable_function(function) for function in traceable_functions)
+
+
 def test_config_loader_rejects_missing_file(require_attr, tmp_path) -> None:
     load_config = require_attr("core.config", "load_config")
     ConfigError = require_attr("core.config", "ConfigError")

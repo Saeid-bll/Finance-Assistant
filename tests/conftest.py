@@ -15,6 +15,18 @@ def project_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def disable_external_services(monkeypatch) -> None:
+    """Keep tests from calling external LLM and tracing services from a local .env file."""
+
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_API_KEY", "")
+    monkeypatch.setenv("LANGSMITH_TRACING", "false")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "")
+    monkeypatch.setenv("LANGCHAIN_API_KEY", "")
+
+
 @pytest.fixture
 def require_attr() -> Callable[[str, str], Any]:
     def _require_attr(module_name: str, attr_name: str) -> Any:

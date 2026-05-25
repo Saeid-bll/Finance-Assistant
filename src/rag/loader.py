@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Tuple, Union
 from langchain_core.documents import Document
 import yaml
 
+from core.tracing import traceable_span
 from rag.types import PATH_KEY, SOURCE_ID_KEY, SOURCE_KEY, TITLE_KEY, URL_KEY, resolve_path, slugify
 
 
@@ -34,6 +35,7 @@ def _extract_title(body: str, fallback: str) -> str:
     return fallback
 
 
+@traceable_span(name="rag.load_markdown_document", run_type="tool", tags=["rag", "loader"])
 def load_markdown_document(path: Union[Path, str]) -> Document:
     """Load one markdown file as a LangChain Document."""
 
@@ -66,6 +68,7 @@ def load_markdown_document(path: Union[Path, str]) -> Document:
     return Document(page_content=content, metadata=document_metadata, id=source_id)
 
 
+@traceable_span(name="rag.load_knowledge_base", run_type="tool", tags=["rag", "loader"])
 def load_knowledge_base(directory: Union[Path, str]) -> List[Document]:
     """Load all markdown files from a knowledge base directory."""
 

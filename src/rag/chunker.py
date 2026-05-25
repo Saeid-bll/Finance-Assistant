@@ -7,12 +7,14 @@ from typing import Iterable, List, Mapping, Union
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownTextSplitter
 
+from core.tracing import traceable_span
 from rag.types import CHUNK_ID_KEY, CHUNK_INDEX_KEY, SOURCE_ID_KEY, normalize_document
 
 
 DocumentLike = Union[Document, Mapping[str, object]]
 
 
+@traceable_span(name="rag.chunk_document", run_type="tool", tags=["rag", "chunker"])
 def chunk_document(
     document: DocumentLike,
     *,
@@ -53,6 +55,7 @@ def chunk_document(
     return chunks
 
 
+@traceable_span(name="rag.chunk_documents", run_type="tool", tags=["rag", "chunker"])
 def chunk_documents(
     documents: Iterable[DocumentLike],
     *,

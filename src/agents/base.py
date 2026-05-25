@@ -7,6 +7,7 @@ from typing import Any, Iterable, Optional
 
 from core.disclaimers import append_disclaimer, disclaimer_text
 from core.models import AgentResponse, Citation
+from core.tracing import traceable_span
 
 
 class BaseAgent(ABC):
@@ -14,6 +15,7 @@ class BaseAgent(ABC):
 
     agent_name: str = "base"
 
+    @traceable_span(name="agent.build_response", run_type="chain", tags=["agent"])
     def response(
         self,
         content: str,

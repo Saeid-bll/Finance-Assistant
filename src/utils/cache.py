@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from core.tracing import traceable_span
+
 
 @dataclass
 class _CacheEntry:
@@ -22,6 +24,7 @@ class TTLCache:
         self.ttl_seconds = float(ttl_seconds)
         self._items: dict[str, _CacheEntry] = {}
 
+    @traceable_span(name="cache.get", run_type="tool", tags=["tool", "cache"])
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         entry = self._items.get(key)
         if entry is None:
@@ -31,11 +34,13 @@ class TTLCache:
             return default
         return entry.value
 
+    @traceable_span(name="cache.set", run_type="tool", tags=["tool", "cache"])
     def set(self, key: str, value: Any) -> None:
         self._items[key] = _CacheEntry(
             value=value,
             expires_at=time.monotonic() + self.ttl_seconds,
         )
 
+    @traceable_span(name="cache.clear", run_type="tool", tags=["tool", "cache"])
     def clear(self) -> None:
         self._items.clear()

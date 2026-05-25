@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from agents.base import BaseAgent
 from core.models import AgentResponse, MarketDataResult, MarketQuote
+from core.tracing import traceable_span
 from utils.cache import TTLCache
 
 
-MarketProvider = Callable[[str], dict[str, Any] | MarketQuote | None]
+MarketProvider = Callable[[str], Optional[Union[Dict[str, Any], MarketQuote]]]
 
 
 class MarketAnalysisAgent(BaseAgent):
@@ -28,12 +29,14 @@ class MarketAnalysisAgent(BaseAgent):
         self.provider = provider or self._yfinance_provider
         self.cache = cache or TTLCache(ttl_seconds=cache_ttl.total_seconds())
 
+    @traceable_span(name="market.normalize_ticker", run_type="tool", tags=["agent", "market"])
     def normalize_ticker(self, ticker: str) -> str:
         normalized = ticker.strip().upper()
         if not normalized:
             raise ValueError("ticker cannot be empty")
         return normalized
 
+    @traceable_span(name="market.lookup", run_type="tool", tags=["agent", "market"])
     def lookup(self, ticker: str) -> MarketQuote | MarketDataResult:
         normalized = self.normalize_ticker(ticker)
         cache_key = f"quote:{normalized}"
@@ -62,6 +65,7 @@ class MarketAnalysisAgent(BaseAgent):
         self.cache.set(cache_key, quote)
         return quote
 
+    @traceable_span(name="market.run", run_type="chain", tags=["agent", "market"])
     def run(self, payload: Any) -> AgentResponse:
         ticker = payload.get("ticker") if isinstance(payload, dict) else payload
         result = self.lookup(str(ticker or ""))
@@ -78,6 +82,7 @@ class MarketAnalysisAgent(BaseAgent):
             metadata={"quote": result.model_dump()},
         )
 
+    @traceable_span(name="market.normalize_quote", run_type="tool", tags=["agent", "market"])
     def _normalize_quote(self, ticker: str, quote: dict[str, Any] | MarketQuote) -> MarketQuote:
         if isinstance(quote, MarketQuote):
             return quote
@@ -90,6 +95,7 @@ class MarketAnalysisAgent(BaseAgent):
             metadata=dict(quote.get("metadata") or {}),
         )
 
+    @traceable_span(name="market.yfinance_provider", run_type="tool", tags=["agent", "market"])
     def _yfinance_provider(self, ticker: str) -> dict[str, Any] | None:
         import yfinance as yf
 

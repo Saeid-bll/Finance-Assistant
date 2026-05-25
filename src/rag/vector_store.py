@@ -9,6 +9,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from core.tracing import traceable_span
 from rag.chunker import chunk_documents
 from rag.embeddings import create_embedding_model
 from rag.types import resolve_path
@@ -17,6 +18,7 @@ from rag.types import resolve_path
 DocumentLike = Union[Document, Mapping[str, object]]
 
 
+@traceable_span(name="rag.create_vector_store", run_type="tool", tags=["rag", "vector_store"])
 def create_vector_store(
     documents: Iterable[DocumentLike],
     *,
@@ -30,6 +32,7 @@ def create_vector_store(
     return create_vector_store_from_chunks(chunks, embedding_model=embedding_model)
 
 
+@traceable_span(name="rag.create_vector_store_from_chunks", run_type="tool", tags=["rag", "vector_store"])
 def create_vector_store_from_chunks(
     chunks: Iterable[Document],
     *,
@@ -45,12 +48,14 @@ def create_vector_store_from_chunks(
     return FAISS.from_documents(chunk_list, embeddings)
 
 
+@traceable_span(name="rag.save_vector_store", run_type="tool", tags=["rag", "vector_store"])
 def save_vector_store(vector_store: FAISS, path: Union[Path, str]) -> None:
     """Persist a FAISS vector store using LangChain's built-in save method."""
 
     vector_store.save_local(str(resolve_path(path)))
 
 
+@traceable_span(name="rag.load_vector_store", run_type="tool", tags=["rag", "vector_store"])
 def load_vector_store(
     path: Union[Path, str],
     *,

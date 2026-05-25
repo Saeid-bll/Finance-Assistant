@@ -6,12 +6,15 @@ from typing import Optional
 
 from langchain_core.embeddings import DeterministicFakeEmbedding, Embeddings
 
+from core.tracing import traceable_span
+
 
 DEFAULT_EMBEDDING_PROVIDER = "gemini"
 DEFAULT_GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
 DEFAULT_EMBEDDING_DIMENSIONS = 768
 
 
+@traceable_span(name="rag.create_embedding_model", run_type="tool", tags=["rag", "embeddings"])
 def create_embedding_model(
     *,
     provider: str = DEFAULT_EMBEDDING_PROVIDER,
@@ -42,6 +45,7 @@ def create_embedding_model(
     return GoogleGenerativeAIEmbeddings(**kwargs)
 
 
+@traceable_span(name="rag.create_test_embedding_model", run_type="tool", tags=["rag", "embeddings"])
 def create_test_embedding_model(*, dimensions: int = DEFAULT_EMBEDDING_DIMENSIONS) -> Embeddings:
     """Create an off-the-shelf deterministic fake embedding model for tests."""
 

@@ -13,6 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from typing_extensions import Literal, TypedDict
 
 from core.config import load_config
+from core.tracing import traceable_span
 
 
 RouteAgent = Literal["finance_qa", "portfolio", "market", "goals", "tax", "news", "workflow"]
@@ -144,6 +145,7 @@ def create_workflow_route(
     }
 
 
+@traceable_span(name="router.route_query", run_type="chain", tags=["workflow", "router"])
 def route_query(
     query: str, *, llm: Optional[Any] = None, history: Optional[Sequence[Any]] = None
 ) -> WorkflowRoute:
@@ -209,6 +211,7 @@ def _default_router_llm() -> Optional[Any]:
     )
 
 
+@traceable_span(name="router.normalize_route", run_type="parser", tags=["workflow", "router"])
 def _normalize_route(raw_route: Any) -> WorkflowRoute:
     if not isinstance(raw_route, dict):
         return create_workflow_route(
@@ -226,6 +229,7 @@ def _normalize_route(raw_route: Any) -> WorkflowRoute:
     )
 
 
+@traceable_span(name="router.fallback_route", run_type="chain", tags=["workflow", "router"])
 def _fallback_route(query: str, *, history: Optional[Sequence[Any]] = None) -> WorkflowRoute:
     lowered = query.lower()
     if _matches(lowered, r"\b(news|headline|headlines|summarize.+market news)\b"):

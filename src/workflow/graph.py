@@ -16,7 +16,7 @@ from agents.market import MarketAnalysisAgent
 from agents.portfolio import PortfolioAnalysisAgent
 from core.disclaimers import append_disclaimer, disclaimer_text
 from core.models import AgentResponse
-from core.tracing import configure_langsmith_tracing
+from core.tracing import configure_langsmith_tracing, traceable_span
 from workflow.router import create_workflow_route, route_query
 from workflow.state import WorkflowState
 
@@ -95,6 +95,7 @@ def conversation_config(thread_id: str) -> dict[str, Any]:
     return {"configurable": {"thread_id": cleaned}}
 
 
+@traceable_span(name="workflow.validate_input", run_type="chain", tags=["workflow"])
 def _validate_input(state: WorkflowState) -> StateUpdate:
     raw_message = state.get("message")
     if not isinstance(raw_message, str) or not raw_message.strip():
@@ -134,6 +135,7 @@ def _route_message(router_llm: Optional[Any]) -> Callable[[WorkflowState], State
     return _run_router
 
 
+@traceable_span(name="workflow.clarify", run_type="chain", tags=["workflow"])
 def _clarify(state: WorkflowState) -> StateUpdate:
     route = state["route"]
     return {
@@ -149,6 +151,7 @@ def _clarify(state: WorkflowState) -> StateUpdate:
     }
 
 
+@traceable_span(name="workflow.unavailable", run_type="chain", tags=["workflow"])
 def _unavailable(state: WorkflowState) -> StateUpdate:
     route = state.get("route") or create_workflow_route(agent_name="workflow")
     return {
@@ -164,6 +167,7 @@ def _unavailable(state: WorkflowState) -> StateUpdate:
 def _agent_node(
     agent_name: str, agents: Mapping[str, Any]
 ) -> Callable[[WorkflowState], StateUpdate]:
+    @traceable_span(name=f"{agent_name}.workflow_node", run_type="chain", tags=["workflow", "agent", agent_name])
     def _run_agent(state: WorkflowState) -> StateUpdate:
         agent = agents.get(agent_name)
         if agent is None or not hasattr(agent, "run"):
@@ -192,12 +196,14 @@ def _agent_node(
 
 
 def _stretch_node(agent_name: str) -> Callable[[WorkflowState], StateUpdate]:
+    @traceable_span(name=f"{agent_name}.run", run_type="chain", tags=["agent", agent_name])
     def _run_stretch_agent(state: WorkflowState) -> StateUpdate:
         return {"response": _stretch_agent_response(agent_name, state["message"])}
 
     return _run_stretch_agent
 
 
+@traceable_span(name="workflow.finalize", run_type="chain", tags=["workflow"])
 def _finalize(state: WorkflowState) -> StateUpdate:
     response = state["response"]
     return {"messages": [AIMessage(content=response.content)]}
@@ -233,6 +239,7 @@ def _default_agents() -> dict[str, Any]:
     }
 
 
+@traceable_span(name="workflow.agent_payload", run_type="tool", tags=["workflow"])
 def _agent_payload(agent_name: str, message: str, state: WorkflowState) -> Any:
     if agent_name == "finance_qa":
         return {"message": message, "state": state}
@@ -245,6 +252,7 @@ def _agent_payload(agent_name: str, message: str, state: WorkflowState) -> Any:
     return {"message": message, "state": state}
 
 
+@traceable_span(name="workflow.extract_ticker", run_type="tool", tags=["workflow"])
 def _extract_ticker(message: str) -> str:
     candidates = re.findall(r"\b[A-Z]{1,5}\b", message.upper())
     ignored = {"WHAT", "PRICE", "CURRENT"}
@@ -270,6 +278,7 @@ def _error_response(
     )
 
 
+@traceable_span(name="workflow.stretch_agent_response", run_type="chain", tags=["workflow"])
 def _stretch_agent_response(agent_name: str, message: str) -> AgentResponse:
     if agent_name == "tax":
         content = (

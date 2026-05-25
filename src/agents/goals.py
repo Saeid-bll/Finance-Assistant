@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from agents.base import BaseAgent
 from core.disclaimers import disclaimer_text
 from core.models import AgentResponse, FinancialGoal, GoalProjection
+from core.tracing import traceable_span
 
 
 EXPECTED_RETURNS = {
@@ -23,6 +24,7 @@ class GoalPlanningAgent(BaseAgent):
 
     agent_name = "goals"
 
+    @traceable_span(name="goals.project", run_type="chain", tags=["agent", "goals"])
     def project(self, goal: dict[str, Any] | FinancialGoal) -> GoalProjection:
         parsed_goal = goal if isinstance(goal, FinancialGoal) else FinancialGoal.model_validate(goal)
         expected_return = EXPECTED_RETURNS[parsed_goal.risk_appetite]
@@ -46,6 +48,7 @@ class GoalPlanningAgent(BaseAgent):
             disclaimer=disclaimer_text(),
         )
 
+    @traceable_span(name="goals.run", run_type="chain", tags=["agent", "goals"])
     def run(self, payload: Any) -> AgentResponse:
         try:
             goal = payload.get("goal", payload) if isinstance(payload, dict) else payload
@@ -63,6 +66,7 @@ class GoalPlanningAgent(BaseAgent):
             metadata={"projection": projection.model_dump()},
         )
 
+    @traceable_span(name="goals.future_value", run_type="tool", tags=["agent", "goals"])
     def _future_value(self, goal: FinancialGoal, annual_return: float) -> float:
         months = int(round(goal.time_horizon_years * 12))
         monthly_return = annual_return / 12
